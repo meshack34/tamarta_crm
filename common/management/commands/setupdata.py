@@ -4,15 +4,19 @@ from secrets import token_urlsafe
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
+from django.contrib.auth import get_user_model
 
 
 class Command(BaseCommand):
-    help = "Migrate and populate data base with initial data"
+    help = "Migrate and populate database with initial data"
 
     def handle(self, *args, **options):
+        User = get_user_model()
+
         if not settings.TESTING:
             call_command('migrate', verbosity=1)
 
+        # Load fixtures
         call_command(
             'loaddata',
             'country.json',
@@ -34,15 +38,24 @@ class Command(BaseCommand):
             'massmailsettings.json',
             verbosity=1
         )
+
+        # Create superuser if not exists
         if not settings.TESTING:
+            username = 'IamSUPER'
+            email = 'super@example.com'
             pas = token_urlsafe(6)
-            os.environ.setdefault('DJANGO_SUPERUSER_PASSWORD', pas)
-            os.environ.setdefault('DJANGO_SUPERUSER_USERNAME', 'IamSUPER')
-            os.environ.setdefault('DJANGO_SUPERUSER_EMAIL', 'super@example.com')
-            call_command('createsuperuser', '--noinput', verbosity=1)
-            print(
-                "SUPERUSER Credentials:\n",
-                " USERNAME: IamSUPER\n",
-                f" PASSWORD: {pas}\n",
-                " EMAIL: super@example.com\n"
-            )
+
+            if not User.objects.filter(username=username).exists():
+                User.objects.create_superuser(
+                    username=username,
+                    email=email,
+                    password=pas
+                )
+                print(
+                    "\n✅ SUPERUSER created successfully!\n",
+                    f" USERNAME: {username}\n",
+                    f" PASSWORD: {pas}\n",
+                    f" EMAIL: {email}\n"
+                )
+            else:
+                print(f"\n⚠️ Superuser '{username}' already exists — skipping creation.\n")
